@@ -48,7 +48,16 @@ Python 3.10+, using `requests`, `beautifulsoup4`, and `pydantic`. Dependencies p
 
 ## Run report (sample)
 ```json
-PEGÁ ACÁ TU output/run-report.json REAL (la corrida limpia, sin la URL falsa)
+{
+  "started_at": "2026-08-13T20:05:11Z",
+  "duration_seconds": 0.49,
+  "pages_fetched": 0,
+  "cache_hits": 63,
+  "valid_records": 60,
+  "invalid_records": 0,
+  "failed_pages": 0,
+  "failed_page_details": []
+}
 ```
 
 No browser was needed for this assignment: all the data (title, price, availability, description) is already present in the HTML the server sends on first request — a browser would only add cost (memory, startup time) without unlocking anything that wasn't already there.
