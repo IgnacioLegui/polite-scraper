@@ -63,7 +63,7 @@ Python 3.10+, using `requests`, `beautifulsoup4`, and `pydantic`. Dependencies p
 No browser was needed for this assignment: all the data (title, price, availability, description) is already present in the HTML the server sends on first request — a browser would only add cost (memory, startup time) without unlocking anything that wasn't already there.
 
 ## Known limitation
-_(una limitación honesta tuya — ej: "Retry logic only retries once for timeouts/5xx; a production version would need exponential backoff, which is exactly next week's A16.")_
+No automated tests. Every stage was validated by hand against its checkpoint (running the script and checking the printed counts/output files), not with tests that run on their own — a stranger cloning the repo has to trust the README's run instructions, not a green test suite.
 
 ## Ethics note
 This scraper only touches an explicit, public practice sandbox (Books to Scrape) built for this exact purpose. As a general rule: prefer an official API over scraping whenever one exists, never bypass logins, paywalls, or explicit blocks, and only collect the data actually needed for the task.
