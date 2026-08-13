@@ -1,9 +1,13 @@
 import os
+import re
+import json
 import time
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from datetime import datetime, timezone
+from pydantic import BaseModel, field_validator
+from typing import Optional
 
 USER_AGENT = "FlyRankInternshipA9/1.0 (+https://github.com/IgnacioLegui/polite-scraper)"
 TIMEOUT = 10
@@ -13,8 +17,6 @@ START_URL = "https://books.toscrape.com/catalogue/page-1.html"
 
 
 def fetch_page(url: str, cache_path: str):
-    """Fetch a page, reading from the local cache if it already exists.
-    Returns (html, from_cache)."""
     if os.path.exists(cache_path):
         with open(cache_path, "r", encoding="utf-8") as f:
             html = f.read()
@@ -36,8 +38,6 @@ def fetch_page(url: str, cache_path: str):
 
 
 def discover_catalogue():
-    """Walk the catalogue's own 'next' links for up to MAX_CATALOGUE_PAGES,
-    collecting (book_url, source_page) for every book, deduped by URL."""
     entries = []
     current_url = START_URL
     pages_visited = 0
@@ -115,16 +115,71 @@ def extract_book(book_url: str, source_page: str) -> dict:
     }
 
 
+def parse_price_gbp(price_text: str) -> float:
+    match = re.search(r"[\d.]+", price_text)
+    if not match:
+        raise ValueError(f"could not parse a number out of price_text={price_text!r}")
+    return float(match.group())
+
+
+class BookRecord(BaseModel):
+    title: str
+    product_url: str
+    price_gbp: float
+    price_text: str
+    availability_text: str
+    rating_text: Optional[str] = None
+    description: Optional[str] = None
+    source_page: str
+    fetched_at: str
+
+    @field_validator("product_url", "source_page")
+    @classmethod
+    def must_be_https(cls, v):
+        if not v.startswith("https://"):
+            raise ValueError("must start with https://")
+        return v
+
+    @field_validator("price_gbp")
+    @classmethod
+    def price_must_be_positive(cls, v):
+        if v <= 0:
+            raise ValueError("price_gbp must be a positive number")
+        return v
+
+
+def normalize_and_validate(raw_records: list[dict]):
+    valid_records = []
+    errors = []
+
+    for raw in raw_records:
+        try:
+            price_gbp = parse_price_gbp(raw["price_text"])
+            candidate = {**raw, "price_gbp": price_gbp}
+            record = BookRecord(**candidate)
+            valid_records.append(record.model_dump())
+        except Exception as exc:
+            errors.append({"product_url": raw.get("product_url"), "reason": str(exc)})
+
+    return valid_records, errors
+
+
+def save_json(data, path: str):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
 if __name__ == "__main__":
     book_entries = discover_catalogue()
 
-    raw_records = []
-    for book_url, source_page in book_entries:
-        record = extract_book(book_url, source_page)
-        raw_records.append(record)
+    raw_records = [extract_book(url, source) for url, source in book_entries]
+    print(f"detail_pages={len(raw_records)}")
 
-    print("\n--- Sample record ---")
-    for key, value in raw_records[0].items():
-        print(f"  {key}: {value}")
+    valid_records, errors = normalize_and_validate(raw_records)
 
-    print(f"\ndetail_pages={len(raw_records)}")
+    save_json(valid_records, "output/books.json")
+    save_json(errors, "output/errors.json")
+
+    print(f"valid_records={len(valid_records)}")
+    print(f"invalid_records={len(errors)}")
